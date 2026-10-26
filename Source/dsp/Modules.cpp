@@ -350,10 +350,13 @@ private:
 };
 
 // =============================================================================================
-// IR MATRIX
+// IR MATRIX - four IR slots, each with its own mix level and polarity, summed together
 CabModule::CabModule (juce::AudioProcessorValueTreeState& s) : Module (s)
 {
-    pBlend = p ("cab_blend"); pLow = p ("cab_lowcut"); pHigh = p ("cab_highcut"); pLevel = p ("cab_level");
+    static const char* mixIds[numSlots]   = { "cab_mixA", "cab_mixB", "cab_mixC", "cab_mixD" };
+    static const char* phaseIds[numSlots] = { "cab_phaseA", "cab_phaseB", "cab_phaseC", "cab_phaseD" };
+    for (int i = 0; i < numSlots; ++i) { pMix[i] = p (mixIds[i]); pPhase[i] = p (phaseIds[i]); }
+    pLow = p ("cab_lowcut"); pHigh = p ("cab_highcut"); pLevel = p ("cab_level");
 }
 
 void CabModule::Sim::set (double fs)
@@ -375,9 +378,9 @@ void CabModule::prepare (double sr, int mb)
     const juce::dsp::ProcessSpec spec { sr, (juce::uint32) mb, 2 };
     for (auto& c : conv) c.prepare (spec);
     for (auto& slot : sim) for (auto& s : slot) s.set (sr);
-    tmp.setSize (2, mb, false, false, true);
+    for (auto* b : { &in, &tmp, &acc }) b->setSize (2, mb, false, false, true);
     level.reset (sr, 0.05);
-    blend.reset (sr, 0.05);
+    for (auto& w : weight) { w.reset (sr, 0.05); w.setCurrentAndTargetValue (0.0f); }
     lastLow = lastHigh = -1;
     reset();
 }
@@ -391,7 +394,7 @@ void CabModule::reset()
 
 bool CabModule::loadIR (int slot, const juce::File& file)
 {
-    slot = juce::jlimit (0, 1, slot);
+    slot = juce::jlimit (0, numSlots - 1, slot);
     juce::AudioFormatManager fm;
     fm.registerBasicFormats();
     std::unique_ptr<juce::AudioFormatReader> r (fm.createReaderFor (file));
@@ -405,7 +408,7 @@ bool CabModule::loadIR (int slot, const juce::File& file)
     return true;
 }
 
-void CabModule::clearIR (int slot) { loaded[juce::jlimit (0, 1, slot)] = false; }
+void CabModule::clearIR (int slot) { loaded[juce::jlimit (0, numSlots - 1, slot)] = false; }
 
 void CabModule::processWet (Buf& buf, const BlockInfo&)
 {
@@ -421,39 +424,57 @@ void CabModule::processWet (Buf& buf, const BlockInfo&)
         lastLow = lo; lastHigh = hi;
     }
     level.setTargetValue (juce::Decibels::decibelsToGain (pLevel->load()));
-    blend.setTargetValue (pBlend->load());
 
-    copyInto (tmp, buf, n);
+    // Mix levels are scaled by their combined power, so stacking slots doesn't blow up the
+    // volume (one slot at full = unity, four at full = half each) and blends stay about as loud as one IR.
+    float power = 0;
+    for (int i = 0; i < numSlots; ++i) power += juce::square (pMix[i]->load());
+    const float norm = 1.0f / juce::jmax (1.0f, std::sqrt (power));
+    for (int i = 0; i < numSlots; ++i)
+        weight[i].setTargetValue (pMix[i]->load() * norm * (pPhase[i]->load() > 0.5f ? -1.0f : 1.0f));
 
-    auto runSlot = [&] (int slot, Buf& b)
+    copyInto (in, buf, n);
+    acc.clear (0, n);
+
+    for (int slot = 0; slot < numSlots; ++slot)
     {
+        auto& w = weight[slot];
+        if (! w.isSmoothing() && w.getCurrentValue() == 0.0f)
+            continue;
+
+        copyInto (tmp, in, n);
         if (loaded[slot])
         {
-            juce::dsp::AudioBlock<float> blk (b);
+            juce::dsp::AudioBlock<float> blk (tmp);
             auto sub = blk.getSubBlock (0, (size_t) n);
             conv[slot].process (juce::dsp::ProcessContextReplacing<float> (sub));
+            sub.multiplyBy (8.0f);   // JUCE normalises IRs to -18 dB; bring them back to about unity
         }
         else
         {
             for (int c = 0; c < 2; ++c)
             {
-                auto* d = b.getWritePointer (c);
+                auto* d = tmp.getWritePointer (c);
                 for (int i = 0; i < n; ++i) d[i] = sim[slot][c].process (d[i]);
             }
         }
-    };
 
-    runSlot (0, buf);
-    runSlot (1, tmp);
+        auto* t0 = tmp.getReadPointer (0); auto* t1 = tmp.getReadPointer (1);
+        auto* a0 = acc.getWritePointer (0); auto* a1 = acc.getWritePointer (1);
+        for (int i = 0; i < n; ++i)
+        {
+            const float g = w.getNextValue();
+            a0[i] += t0[i] * g;
+            a1[i] += t1[i] * g;
+        }
+    }
 
     for (int i = 0; i < n; ++i)
     {
-        const float bl = blend.getNextValue();
         const float lv = level.getNextValue();
         for (int c = 0; c < 2; ++c)
         {
-            float x = buf.getSample (c, i) * (1.0f - bl) + tmp.getSample (c, i) * bl;
-            x = highcut[c].process (lowcut[c].process (x));
+            const float x = highcut[c].process (lowcut[c].process (acc.getSample (c, i)));
             buf.setSample (c, i, x * lv);
         }
     }

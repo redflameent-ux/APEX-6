@@ -195,13 +195,22 @@ RackUnit::RackUnit (ApexProcessor& p, int id)
 
     if (id == Cab)
     {
-        for (int slot = 0; slot < 2; ++slot)
+        const char* letters = "ABCD";
+        for (int slot = 0; slot < 4; ++slot)
         {
+            const juce::String L = juce::String::charToString (letters[slot]);
             irBtn[slot].onClick = [this, slot] { chooseIR (slot); };
-            irBtn[slot].setTooltip ("Load an impulse response (.wav) into slot " + juce::String (slot == 0 ? "A" : "B"));
+            irBtn[slot].setTooltip ("Load an impulse response (.wav) into slot " + L);
             addAndMakeVisible (irBtn[slot]);
+
+            phaseBtn[slot].setButtonText (juce::String (juce::CharPointer_UTF8 ("\xc3\x98")));
+            phaseBtn[slot].setClickingTogglesState (true);
+            phaseBtn[slot].setTooltip ("Flip the polarity of slot " + L + " (fixes thin, hollow blends)");
+            addAndMakeVisible (phaseBtn[slot]);
+            phaseAtts.add (new juce::AudioProcessorValueTreeState::ButtonAttachment (s, "cab_phase" + L, phaseBtn[slot]));
+
             irClear[slot].setButtonText ("x");
-            irClear[slot].setTooltip ("Clear this slot (falls back to the built-in cab)");
+            irClear[slot].setTooltip ("Clear slot " + L + " (falls back to the built-in 4x12)");
             irClear[slot].onClick = [this, slot] { proc.clearIR (slot); refreshIR(); };
             addAndMakeVisible (irClear[slot]);
         }
@@ -213,10 +222,10 @@ RackUnit::RackUnit (ApexProcessor& p, int id)
 
 void RackUnit::refreshIR()
 {
-    for (int slot = 0; slot < 2; ++slot)
+    for (int slot = 0; slot < 4; ++slot)
     {
         const auto name = proc.getIRName (slot);
-        const juce::String tag = slot == 0 ? "A: " : "B: ";
+        const juce::String tag = juce::String::charToString ("ABCD"[slot]) + ": ";
         irBtn[slot].setButtonText (tag + (name.isEmpty() ? "built-in 4x12" : name));
         irClear[slot].setEnabled (name.isNotEmpty());
     }
@@ -249,7 +258,14 @@ void RackUnit::poll()
         for (auto* c : combos) c->setAlpha (on ? 1.0f : 0.45f);
         repaint();
     }
-    if (moduleId == Cab) refreshIR();
+    if (moduleId == Cab)
+    {
+        refreshIR();
+        float sig = 0;
+        for (auto L : { "A", "B", "C", "D" })
+            sig = sig * 7.0f + proc.apvts.getRawParameterValue (juce::String ("cab_mix") + L)->load();
+        if (sig != lastMixSig) { lastMixSig = sig; repaint (0, 0, stripW, getHeight()); }
+    }
 }
 
 void RackUnit::paint (juce::Graphics& g)
@@ -275,6 +291,43 @@ void RackUnit::paint (juce::Graphics& g)
     g.setColour (col::dim);
     g.setFont (font (12.0f));
     g.drawText (mi.tagline, 46, 36, stripW - 50, 16, juce::Justification::centredLeft);
+    if (moduleId == Cab)
+    {
+        // blend bar: how much of each slot is in the mix
+        float w[4], total = 0;
+        const char* letters = "ABCD";
+        for (int i = 0; i < 4; ++i)
+        {
+            w[i] = proc.apvts.getRawParameterValue (juce::String ("cab_mix") + letters[i])->load();
+            total += w[i];
+        }
+        auto bar = juce::Rectangle<float> (16.0f, 66.0f, (float) stripW - 32.0f, 18.0f);
+        g.setColour (col::bg);
+        g.fillRoundedRectangle (bar, 4.0f);
+        if (total > 0.0f)
+        {
+            float x = bar.getX();
+            for (int i = 0; i < 4; ++i)
+            {
+                const float segW = bar.getWidth() * w[i] / total;
+                if (segW < 1.0f) continue;
+                auto seg = juce::Rectangle<float> (x, bar.getY(), segW, bar.getHeight()).reduced (0.5f, 2.0f);
+                g.setColour (mi.colour.withMultipliedBrightness (1.0f - 0.2f * (float) i).withAlpha (on ? 0.9f : 0.3f));
+                g.fillRoundedRectangle (seg, 3.0f);
+                if (segW > 14.0f)
+                {
+                    g.setColour (juce::Colours::black.withAlpha (0.75f));
+                    g.setFont (font (11.0f, true));
+                    g.drawText (juce::String::charToString (letters[i]), seg, juce::Justification::centred);
+                }
+                x += segW;
+            }
+        }
+        g.setColour (col::dim);
+        g.setFont (font (10.5f, true));
+        g.drawText ("BLEND", 16, 88, 60, 14, juce::Justification::centredLeft);
+    }
+
     g.setFont (font (10.5f, true));
     g.drawText (mi.category, 16, getHeight() - 26, stripW - 40, 14, juce::Justification::centredLeft);
 
@@ -311,17 +364,20 @@ void RackUnit::resized()
 
     if (moduleId == Cab)
     {
-        auto colm = area.removeFromLeft (200);
-        area.removeFromLeft (10);
-        auto c = colm.withSizeKeepingCentre (200, 72);
-        for (int slot = 0; slot < 2; ++slot)
+        auto row = area.removeFromTop (34);
+        area.removeFromTop (8);
+        const int cardW = (row.getWidth() - 3 * 8) / 4;
+        for (int slot = 0; slot < 4; ++slot)
         {
-            auto row = c.removeFromTop (32);
-            irClear[slot].setBounds (row.removeFromRight (28));
-            row.removeFromRight (4);
-            irBtn[slot].setBounds (row);
-            c.removeFromTop (8);
+            auto card = row.removeFromLeft (cardW);
+            row.removeFromLeft (8);
+            irClear[slot].setBounds (card.removeFromRight (26));
+            card.removeFromRight (3);
+            phaseBtn[slot].setBounds (card.removeFromRight (28));
+            card.removeFromRight (3);
+            irBtn[slot].setBounds (card);
         }
+        area = area.removeFromTop (108);
     }
 
     for (auto* k : knobs)
@@ -396,24 +452,41 @@ void RackView::rebuild()
     repaint();
 }
 
-int RackView::contentHeight() const { return gap + units.size() * (unitH + gap); }
+int RackView::contentHeight() const
+{
+    int h = gap;
+    for (auto* u : units) h += u->preferredHeight() + gap;
+    return h;
+}
 
 void RackView::layoutUnits()
 {
     const int w = getWidth() - 2 * gap;
-    int slot = 0;
+    std::vector<RackUnit*> order;
     for (auto* u : units)
+        if (u != dragUnit) order.push_back (u);
+    if (dragUnit != nullptr)
+        order.insert (order.begin() + juce::jlimit (0, (int) order.size(), dragTarget), dragUnit);
+
+    int y = gap;
+    for (auto* u : order)
     {
-        if (u == dragUnit) continue;
-        if (dragUnit != nullptr && slot == dragTarget) ++slot;
-        u->setBounds (gap, gap + slot * (unitH + gap), w, unitH);
-        ++slot;
+        if (u != dragUnit)
+            u->setBounds (gap, y, w, u->preferredHeight());
+        y += u->preferredHeight() + gap;
     }
 }
 
 int RackView::targetFor (int centreY) const
 {
-    return juce::jlimit (0, juce::jmax (0, units.size() - 1), (centreY - gap) / (unitH + gap));
+    int idx = 0, y = gap;
+    for (auto* u : units)
+    {
+        if (u == dragUnit) continue;
+        if (centreY > y + u->preferredHeight() / 2) ++idx;
+        y += u->preferredHeight() + gap;
+    }
+    return idx;
 }
 
 void RackView::startDrag (RackUnit& u, const juce::MouseEvent& e)
@@ -426,9 +499,9 @@ void RackView::startDrag (RackUnit& u, const juce::MouseEvent& e)
 
 void RackView::moveDrag (RackUnit& u, const juce::MouseEvent& e)
 {
-    const int y = juce::jlimit (0, juce::jmax (0, getHeight() - unitH), e.getEventRelativeTo (this).getPosition().y - dragOffset);
+    const int y = juce::jlimit (0, juce::jmax (0, getHeight() - u.getHeight()), e.getEventRelativeTo (this).getPosition().y - dragOffset);
     u.setTopLeftPosition (u.getX(), y);
-    const int t = targetFor (y + unitH / 2);
+    const int t = targetFor (y + u.getHeight() / 2);
     if (t != dragTarget)
     {
         dragTarget = t;

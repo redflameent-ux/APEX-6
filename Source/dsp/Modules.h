@@ -67,14 +67,17 @@ private:
         }
     };
 
-    juce::dsp::Convolution conv[2];
-    std::atomic<bool> loaded[2] = { false, false };
-    Sim sim[2][2];
+public:
+    static constexpr int numSlots = 4;
+private:
+    juce::dsp::Convolution conv[numSlots];
+    std::atomic<bool> loaded[numSlots] = { false, false, false, false };
+    Sim sim[numSlots][2];
     Biquad lowcut[2], highcut[2];
     float lastLow = -1, lastHigh = -1;
-    juce::SmoothedValue<float> level, blend;
-    juce::AudioBuffer<float> tmp;
-    std::atomic<float> *pBlend, *pLow, *pHigh, *pLevel;
+    juce::SmoothedValue<float> level, weight[numSlots];
+    juce::AudioBuffer<float> in, tmp, acc;
+    std::atomic<float> *pMix[numSlots], *pPhase[numSlots], *pLow, *pHigh, *pLevel;
 };
 
 std::unique_ptr<Module> createModule (int id, juce::AudioProcessorValueTreeState& s);

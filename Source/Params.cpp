@@ -22,8 +22,9 @@ const std::vector<ModuleInfo>& modules()
           { { "amp_gain", "Gain" }, { "amp_bass", "Bass" }, { "amp_mid", "Mid" }, { "amp_treble", "Treble" },
             { "amp_presence", "Presence" }, { "amp_depth", "Depth" }, { "amp_master", "Master" } }, {}, 3 },
 
-        { Cab, "cab", "IR MATRIX", "dual IR cab loader", "AMP + CAB", juce::Colour (0xffffb347),
-          {}, { { "cab_blend", "A / B" }, { "cab_lowcut", "Low Cut" }, { "cab_highcut", "High Cut" }, { "cab_level", "Level" } }, {}, 4 },
+        { Cab, "cab", "IR MATRIX", "4-IR blend cab", "AMP + CAB", juce::Colour (0xffffb347),
+          {}, { { "cab_mixA", "Mix A" }, { "cab_mixB", "Mix B" }, { "cab_mixC", "Mix C" }, { "cab_mixD", "Mix D" },
+                { "cab_lowcut", "Low Cut" }, { "cab_highcut", "High Cut" }, { "cab_level", "Level" } }, {}, 4 },
 
         { Tape, "tape", "WOW TAPE", "warble + tape age", "WEIRD PEDALS", juce::Colour (0xffc9a27e),
           {}, { { "tape_wow", "Wow" }, { "tape_flutter", "Flutter" }, { "tape_age", "Age" }, { "tape_mix", "Mix" } }, {}, 5 },
@@ -117,8 +118,12 @@ Layout createLayout()
     addF (l, "amp_master", "Amp Master", lin (0.0f, 10.0f), 5.0f, ten);
 
     // IR Matrix
-    addF (l, "cab_blend", "Cab A/B Blend", lin (0.0f, 1.0f), 0.0f,
-          [] (float v) { return "A" + juce::String (juce::roundToInt ((1.0f - v) * 100.0f)) + " B" + juce::String (juce::roundToInt (v * 100.0f)); });
+    for (auto slot : { "A", "B", "C", "D" })
+    {
+        addF (l, juce::String ("cab_mix") + slot, juce::String ("Cab Mix ") + slot, lin (0.0f, 1.0f),
+              juce::String (slot) == "A" ? 1.0f : 0.0f, pct);
+        addB (l, juce::String ("cab_phase") + slot, juce::String ("Cab Phase Flip ") + slot, false);
+    }
     addF (l, "cab_lowcut", "Cab Low Cut", skew (20.0f, 300.0f, 80.0f), 70.0f, hz);
     addF (l, "cab_highcut", "Cab High Cut", skew (2000.0f, 20000.0f, 8000.0f), 9000.0f, hz);
     addF (l, "cab_level", "Cab Level", lin (-24.0f, 12.0f), 0.0f, db);

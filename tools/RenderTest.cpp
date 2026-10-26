@@ -110,8 +110,62 @@ int main (int argc, char** argv)
         }
     }
 
-    // editor screenshot
-    proc.applyFactoryPreset (6);
+    // four-IR blend: make four fake IRs, load them, blend them all, check the result
+    {
+        juce::Random r (7);
+        const char* names[4] = { "V30_SM57_cap", "Greenback_R121", "OS_4x12_MD421", "Dark_1x12_room" };
+        for (int slot = 0; slot < 4; ++slot)
+        {
+            juce::AudioBuffer<float> ir (1, 2048);
+            float lp = 0;
+            for (int i = 0; i < ir.getNumSamples(); ++i)
+            {
+                lp += (r.nextFloat() * 2 - 1 - lp) * (0.15f + 0.1f * (float) slot);
+                ir.setSample (0, i, lp * std::exp (-(float) i / (150.0f + 120.0f * (float) slot)));
+            }
+            auto f = outDir.getChildFile (juce::String (names[slot]) + ".wav");
+            f.deleteFile();
+            std::unique_ptr<juce::OutputStream> os (f.createOutputStream().release());
+            if (auto* w = wav.createWriterFor (os.get(), fs, 1, 24, {}, 0))
+            {
+                os.release();
+                std::unique_ptr<juce::AudioFormatWriter> writer (w);
+                writer->writeFromAudioSampleBuffer (ir, 0, ir.getNumSamples());
+            }
+            if (! proc.loadIR (slot, f)) { std::printf ("IR load FAILED slot %d\n", slot); allOk = false; }
+        }
+        proc.applyFactoryPreset (1);
+        const float mixes[4] = { 0.8f, 0.6f, 0.4f, 0.25f };
+        const char* L[4] = { "A", "B", "C", "D" };
+        for (int i = 0; i < 4; ++i)
+            proc.apvts.getParameter (juce::String ("cab_mix") + L[i])->setValueNotifyingHost (mixes[i]);
+        // reference: slot A alone, then the full blend
+        for (int pass = 0; pass < 2; ++pass)
+        {
+        if (pass == 0)
+            for (int i = 1; i < 4; ++i) proc.apvts.getParameter (juce::String ("cab_mix") + L[i])->setValueNotifyingHost (0.0f);
+        else
+            for (int i = 0; i < 4; ++i) proc.apvts.getParameter (juce::String ("cab_mix") + L[i])->setValueNotifyingHost (mixes[i]);
+        juce::Thread::sleep (300);   // IRs load in the background
+        proc.prepareToPlay (fs, block);
+        juce::AudioBuffer<float> b (2, riff.getNumSamples());
+        b.copyFrom (0, 0, riff, 0, 0, riff.getNumSamples());
+        b.copyFrom (1, 0, riff, 0, 0, riff.getNumSamples());
+        juce::MidiBuffer midi;
+        for (int pos = 0; pos < b.getNumSamples(); pos += block)
+        {
+            juce::AudioBuffer<float> sub (b.getArrayOfWritePointers(), 2, pos, juce::jmin (block, b.getNumSamples() - pos));
+            proc.processBlock (sub, midi);
+        }
+        const float pk = b.getMagnitude (0, b.getNumSamples());
+        const bool ok = pk > 0.01f && pk <= 1.0f && std::isfinite (pk);
+        allOk &= ok;
+        std::printf ("%s peak %6.1f dB  rms %6.1f dB  %s\n", pass == 0 ? "IR A alone          " : "4-IR blend          ", juce::Decibels::gainToDecibels (pk),
+                     juce::Decibels::gainToDecibels (b.getRMSLevel (0, 0, b.getNumSamples())), ok ? "ok" : "PROBLEM");
+        }
+    }
+
+    // editor screenshot (keeps the 4-IR blend loaded)
     {
         std::unique_ptr<juce::AudioProcessorEditor> ed (proc.createEditor());
         ed->setVisible (true);

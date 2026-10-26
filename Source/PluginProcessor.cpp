@@ -238,7 +238,7 @@ void ApexProcessor::setStateInformation (const void* data, int size)
         chain = factoryPresets().front().chain;
     setChain (chain);
 
-    for (int slot = 0; slot < 2; ++slot)
+    for (int slot = 0; slot < CabModule::numSlots; ++slot)
     {
         const auto path = apvts.state.getProperty ("ir" + juce::String (slot)).toString();
         if (juce::File::isAbsolutePath (path) && juce::File (path).existsAsFile()) cab->loadIR (slot, juce::File (path));
