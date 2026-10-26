@@ -22,8 +22,9 @@ const std::vector<ModuleInfo>& modules()
           { { "amp_gain", "Gain" }, { "amp_bass", "Bass" }, { "amp_mid", "Mid" }, { "amp_treble", "Treble" },
             { "amp_presence", "Presence" }, { "amp_depth", "Depth" }, { "amp_master", "Master" } }, {}, 3 },
 
-        { Cab, "cab", "IR MATRIX", "4-IR blend cab", "AMP + CAB", juce::Colour (0xffffb347),
+        { Cab, "cab", "IR MATRIX", "6-IR blend cab", "AMP + CAB", juce::Colour (0xffffb347),
           {}, { { "cab_mixA", "Mix A" }, { "cab_mixB", "Mix B" }, { "cab_mixC", "Mix C" }, { "cab_mixD", "Mix D" },
+                { "cab_mixE", "Mix E" }, { "cab_mixF", "Mix F" },
                 { "cab_lowcut", "Low Cut" }, { "cab_highcut", "High Cut" }, { "cab_level", "Level" } }, {}, 4 },
 
         { Tape, "tape", "WOW TAPE", "warble + tape age", "WEIRD PEDALS", juce::Colour (0xffc9a27e),
@@ -118,7 +119,7 @@ Layout createLayout()
     addF (l, "amp_master", "Amp Master", lin (0.0f, 10.0f), 5.0f, ten);
 
     // IR Matrix
-    for (auto slot : { "A", "B", "C", "D" })
+    for (auto slot : { "A", "B", "C", "D", "E", "F" })
     {
         addF (l, juce::String ("cab_mix") + slot, juce::String ("Cab Mix ") + slot, lin (0.0f, 1.0f),
               juce::String (slot) == "A" ? 1.0f : 0.0f, pct);

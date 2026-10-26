@@ -113,8 +113,8 @@ int main (int argc, char** argv)
     // four-IR blend: make four fake IRs, load them, blend them all, check the result
     {
         juce::Random r (7);
-        const char* names[4] = { "V30_SM57_cap", "Greenback_R121", "OS_4x12_MD421", "Dark_1x12_room" };
-        for (int slot = 0; slot < 4; ++slot)
+        const char* names[6] = { "V30_SM57_cap", "Greenback_R121", "OS_4x12_MD421", "Dark_1x12_room", "Bass_8x10_D112", "Room_mic_far" };
+        for (int slot = 0; slot < 6; ++slot)
         {
             juce::AudioBuffer<float> ir (1, 2048);
             float lp = 0;
@@ -135,17 +135,17 @@ int main (int argc, char** argv)
             if (! proc.loadIR (slot, f)) { std::printf ("IR load FAILED slot %d\n", slot); allOk = false; }
         }
         proc.applyFactoryPreset (1);
-        const float mixes[4] = { 0.8f, 0.6f, 0.4f, 0.25f };
-        const char* L[4] = { "A", "B", "C", "D" };
-        for (int i = 0; i < 4; ++i)
+        const float mixes[6] = { 0.8f, 0.6f, 0.4f, 0.25f, 0.15f, 0.3f };
+        const char* L[6] = { "A", "B", "C", "D", "E", "F" };
+        for (int i = 0; i < 6; ++i)
             proc.apvts.getParameter (juce::String ("cab_mix") + L[i])->setValueNotifyingHost (mixes[i]);
         // reference: slot A alone, then the full blend
         for (int pass = 0; pass < 2; ++pass)
         {
         if (pass == 0)
-            for (int i = 1; i < 4; ++i) proc.apvts.getParameter (juce::String ("cab_mix") + L[i])->setValueNotifyingHost (0.0f);
+            for (int i = 1; i < 6; ++i) proc.apvts.getParameter (juce::String ("cab_mix") + L[i])->setValueNotifyingHost (0.0f);
         else
-            for (int i = 0; i < 4; ++i) proc.apvts.getParameter (juce::String ("cab_mix") + L[i])->setValueNotifyingHost (mixes[i]);
+            for (int i = 0; i < 6; ++i) proc.apvts.getParameter (juce::String ("cab_mix") + L[i])->setValueNotifyingHost (mixes[i]);
         juce::Thread::sleep (300);   // IRs load in the background
         proc.prepareToPlay (fs, block);
         juce::AudioBuffer<float> b (2, riff.getNumSamples());
@@ -160,7 +160,7 @@ int main (int argc, char** argv)
         const float pk = b.getMagnitude (0, b.getNumSamples());
         const bool ok = pk > 0.01f && pk <= 1.0f && std::isfinite (pk);
         allOk &= ok;
-        std::printf ("%s peak %6.1f dB  rms %6.1f dB  %s\n", pass == 0 ? "IR A alone          " : "4-IR blend          ", juce::Decibels::gainToDecibels (pk),
+        std::printf ("%s peak %6.1f dB  rms %6.1f dB  %s\n", pass == 0 ? "IR A alone          " : "6-IR blend          ", juce::Decibels::gainToDecibels (pk),
                      juce::Decibels::gainToDecibels (b.getRMSLevel (0, 0, b.getNumSamples())), ok ? "ok" : "PROBLEM");
         }
     }

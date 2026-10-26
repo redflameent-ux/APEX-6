@@ -195,8 +195,8 @@ RackUnit::RackUnit (ApexProcessor& p, int id)
 
     if (id == Cab)
     {
-        const char* letters = "ABCD";
-        for (int slot = 0; slot < 4; ++slot)
+        const char* letters = "ABCDEF";
+        for (int slot = 0; slot < 6; ++slot)
         {
             const juce::String L = juce::String::charToString (letters[slot]);
             irBtn[slot].onClick = [this, slot] { chooseIR (slot); };
@@ -222,10 +222,10 @@ RackUnit::RackUnit (ApexProcessor& p, int id)
 
 void RackUnit::refreshIR()
 {
-    for (int slot = 0; slot < 4; ++slot)
+    for (int slot = 0; slot < 6; ++slot)
     {
         const auto name = proc.getIRName (slot);
-        const juce::String tag = juce::String::charToString ("ABCD"[slot]) + ": ";
+        const juce::String tag = juce::String::charToString ("ABCDEF"[slot]) + ": ";
         irBtn[slot].setButtonText (tag + (name.isEmpty() ? "built-in 4x12" : name));
         irClear[slot].setEnabled (name.isNotEmpty());
     }
@@ -262,7 +262,7 @@ void RackUnit::poll()
     {
         refreshIR();
         float sig = 0;
-        for (auto L : { "A", "B", "C", "D" })
+        for (auto L : { "A", "B", "C", "D", "E", "F" })
             sig = sig * 7.0f + proc.apvts.getRawParameterValue (juce::String ("cab_mix") + L)->load();
         if (sig != lastMixSig) { lastMixSig = sig; repaint (0, 0, stripW, getHeight()); }
     }
@@ -294,9 +294,9 @@ void RackUnit::paint (juce::Graphics& g)
     if (moduleId == Cab)
     {
         // blend bar: how much of each slot is in the mix
-        float w[4], total = 0;
-        const char* letters = "ABCD";
-        for (int i = 0; i < 4; ++i)
+        float w[6], total = 0;
+        const char* letters = "ABCDEF";
+        for (int i = 0; i < 6; ++i)
         {
             w[i] = proc.apvts.getRawParameterValue (juce::String ("cab_mix") + letters[i])->load();
             total += w[i];
@@ -307,14 +307,14 @@ void RackUnit::paint (juce::Graphics& g)
         if (total > 0.0f)
         {
             float x = bar.getX();
-            for (int i = 0; i < 4; ++i)
+            for (int i = 0; i < 6; ++i)
             {
                 const float segW = bar.getWidth() * w[i] / total;
                 if (segW < 1.0f) continue;
                 auto seg = juce::Rectangle<float> (x, bar.getY(), segW, bar.getHeight()).reduced (0.5f, 2.0f);
-                g.setColour (mi.colour.withMultipliedBrightness (1.0f - 0.2f * (float) i).withAlpha (on ? 0.9f : 0.3f));
+                g.setColour (mi.colour.withMultipliedBrightness (1.0f - 0.12f * (float) i).withAlpha (on ? 0.9f : 0.3f));
                 g.fillRoundedRectangle (seg, 3.0f);
-                if (segW > 14.0f)
+                if (segW > 12.0f)
                 {
                     g.setColour (juce::Colours::black.withAlpha (0.75f));
                     g.setFont (font (11.0f, true));
@@ -364,24 +364,31 @@ void RackUnit::resized()
 
     if (moduleId == Cab)
     {
-        auto row = area.removeFromTop (34);
-        area.removeFromTop (8);
-        const int cardW = (row.getWidth() - 3 * 8) / 4;
-        for (int slot = 0; slot < 4; ++slot)
+        // two rows of three slot cards
+        for (int r = 0; r < 2; ++r)
         {
-            auto card = row.removeFromLeft (cardW);
-            row.removeFromLeft (8);
-            irClear[slot].setBounds (card.removeFromRight (26));
-            card.removeFromRight (3);
-            phaseBtn[slot].setBounds (card.removeFromRight (28));
-            card.removeFromRight (3);
-            irBtn[slot].setBounds (card);
+            auto row = area.removeFromTop (32);
+            area.removeFromTop (6);
+            const int cardW = (row.getWidth() - 2 * 8) / 3;
+            for (int k = 0; k < 3; ++k)
+            {
+                const int slot = r * 3 + k;
+                auto card = row.removeFromLeft (cardW);
+                row.removeFromLeft (8);
+                irClear[slot].setBounds (card.removeFromRight (26));
+                card.removeFromRight (3);
+                phaseBtn[slot].setBounds (card.removeFromRight (28));
+                card.removeFromRight (3);
+                irBtn[slot].setBounds (card);
+            }
         }
+        area.removeFromTop (2);
         area = area.removeFromTop (108);
     }
 
+    const int knobW = knobs.isEmpty() ? 74 : juce::jmin (74, area.getWidth() / knobs.size());
     for (auto* k : knobs)
-        k->setBounds (area.removeFromLeft (74));
+        k->setBounds (area.removeFromLeft (knobW));
 
     for (auto* t : toggles)
     {

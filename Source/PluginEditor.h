@@ -59,7 +59,7 @@ public:
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override;
     void poll();
-    int preferredHeight() const { return moduleId == Cab ? 176 : 124; }
+    int preferredHeight() const { return moduleId == Cab ? 214 : 124; }
 
     const int moduleId;
     std::function<void (RackUnit&, const juce::MouseEvent&)> onDragStart, onDragMove, onDragEnd;
@@ -82,7 +82,7 @@ private:
     juce::OwnedArray<juce::AudioProcessorValueTreeState::ComboBoxAttachment> comboAtts;
     juce::OwnedArray<juce::ToggleButton> toggles;
     juce::OwnedArray<juce::AudioProcessorValueTreeState::ButtonAttachment> toggleAtts;
-    juce::TextButton irBtn[4], irClear[4], phaseBtn[4];
+    juce::TextButton irBtn[6], irClear[6], phaseBtn[6];
     juce::OwnedArray<juce::AudioProcessorValueTreeState::ButtonAttachment> phaseAtts;
     float lastMixSig = -1;
     std::unique_ptr<juce::FileChooser> chooser;

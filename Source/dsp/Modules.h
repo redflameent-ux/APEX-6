@@ -68,10 +68,10 @@ private:
     };
 
 public:
-    static constexpr int numSlots = 4;
+    static constexpr int numSlots = 6;
 private:
     juce::dsp::Convolution conv[numSlots];
-    std::atomic<bool> loaded[numSlots] = { false, false, false, false };
+    std::atomic<bool> loaded[numSlots] = { false, false, false, false, false, false };
     Sim sim[numSlots][2];
     Biquad lowcut[2], highcut[2];
     float lastLow = -1, lastHigh = -1;

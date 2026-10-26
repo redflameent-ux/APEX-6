@@ -350,12 +350,15 @@ private:
 };
 
 // =============================================================================================
-// IR MATRIX - four IR slots, each with its own mix level and polarity, summed together
+// IR MATRIX - six IR slots, each with its own mix level and polarity, summed together
 CabModule::CabModule (juce::AudioProcessorValueTreeState& s) : Module (s)
 {
-    static const char* mixIds[numSlots]   = { "cab_mixA", "cab_mixB", "cab_mixC", "cab_mixD" };
-    static const char* phaseIds[numSlots] = { "cab_phaseA", "cab_phaseB", "cab_phaseC", "cab_phaseD" };
-    for (int i = 0; i < numSlots; ++i) { pMix[i] = p (mixIds[i]); pPhase[i] = p (phaseIds[i]); }
+    for (int i = 0; i < numSlots; ++i)
+    {
+        const auto L = juce::String::charToString ("ABCDEF"[i]);
+        pMix[i] = apvts.getRawParameterValue ("cab_mix" + L);
+        pPhase[i] = apvts.getRawParameterValue ("cab_phase" + L);
+    }
     pLow = p ("cab_lowcut"); pHigh = p ("cab_highcut"); pLevel = p ("cab_level");
 }
 
@@ -426,7 +429,7 @@ void CabModule::processWet (Buf& buf, const BlockInfo&)
     level.setTargetValue (juce::Decibels::decibelsToGain (pLevel->load()));
 
     // Mix levels are scaled by their combined power, so stacking slots doesn't blow up the
-    // volume (one slot at full = unity, four at full = half each) and blends stay about as loud as one IR.
+    // volume (one slot at full = unity, four at full = half each, six at full = ~0.4 each) and blends stay about as loud as one IR.
     float power = 0;
     for (int i = 0; i < numSlots; ++i) power += juce::square (pMix[i]->load());
     const float norm = 1.0f / juce::jmax (1.0f, std::sqrt (power));
