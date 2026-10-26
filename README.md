@@ -11,7 +11,7 @@ amps, cabs, pedals and effects. VST3 + stand-alone on Windows, AU + VST3 + stand
 | **TIGHT** | One-knob-style tightener / boost | Tight (cuts low end going into the amp), Edge (mid push), Boost |
 | **SCRAPYARD** | Bit crusher / fuzz | Bits, Rate, Fuzz, Mix |
 | **APEX HEAD** | 4-channel amp, 4x oversampled | Channel (Clean / Crunch / Lead / Modern), Gain, Bass, Mid, Treble, Presence, Depth, Master |
-| **IR MATRIX** | Dual IR cab loader | Load any IR into slot A and B, A/B blend, Low Cut, High Cut, Level. Empty slots use a built-in 4x12 |
+| **IR MATRIX** | 4-IR blend cab | Four IR slots (A-D), each with its own Mix knob and polarity flip (Ø), plus Low Cut, High Cut, Level. A blend bar shows the mix. Empty slots use a built-in 4x12 |
 | **WOW TAPE** | Tape warble | Wow, Flutter, Age (darkening, saturation, hiss), Mix |
 | **GLITCH LOOM** | Tempo stutter | Grid, Shred, Chance, Reverse, Mix. Follows your DAW tempo |
 | **ECHO CHAMBER** | Dub delay | Sync (or free time), Time, Feedback, Tone, Mix, Ping-pong |
