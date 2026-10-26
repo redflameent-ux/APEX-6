@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include "Presets.h"
+#include "BinaryData.h"
 
 using namespace apex;
 using namespace apex::ui;
@@ -621,6 +622,7 @@ ApexEditor::ApexEditor (ApexProcessor& p)
       outKnob (p.apvts, "out_gain", "Output", col::accent)
 {
     setLookAndFeel (&lnf);
+    logo = juce::ImageCache::getFromMemory (BinaryData::logo_png, BinaryData::logo_pngSize);
 
     addAndMakeVisible (sidebar);
     viewport.setViewedComponent (&rack, false);
@@ -650,7 +652,7 @@ ApexEditor::ApexEditor (ApexProcessor& p)
     addAndMakeVisible (inKnob);
     addAndMakeVisible (outKnob);
 
-    setSize (1120, 780);
+    setSize (1120, 830);
     startTimerHz (30);
     timerCallback();
 }
@@ -747,27 +749,21 @@ void ApexEditor::paint (juce::Graphics& g)
     g.fillAll (col::bg);
 
     // header
-    auto head = getLocalBounds().removeFromTop (84);
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff1d1d23), 0, 0, col::bg, 0, 84, false));
+    auto head = getLocalBounds().removeFromTop (headH);
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff17191a), 0, 0, col::bg, 0, (float) headH, false));
     g.fillRect (head);
     g.setColour (col::line);
-    g.drawHorizontalLine (83, 0.0f, (float) getWidth());
+    g.setColour (col::accent.withAlpha (0.35f));
+    g.drawHorizontalLine (headH - 1, 0.0f, (float) getWidth());
 
-    // faint matrix grid behind the logo
-    g.setColour (col::accent.withAlpha (0.05f));
-    for (int x = 0; x < 300; x += 12) g.drawVerticalLine (x, 0.0f, 83.0f);
-    for (int y = 0; y < 84; y += 12) g.drawHorizontalLine (y, 0.0f, 300.0f);
-
-    g.setFont (font (38.0f, true));
-    g.setColour (col::accent.withAlpha (0.25f));
-    g.drawText ("APEX-6", 23, 9, 260, 44, juce::Justification::centredLeft);
-    g.setColour (col::text);
-    g.drawText ("APEX", 22, 8, 260, 44, juce::Justification::centredLeft);
-    g.setColour (col::accent);
-    g.drawText ("-6", 22 + (int) juce::GlyphArrangement::getStringWidth (font (38.0f, true), "APEX"), 8, 80, 44, juce::Justification::centredLeft);
-    g.setColour (col::dim);
-    g.setFont (font (12.0f, true));
-    g.drawText ("G U I T A R   T O N E   M A T R I X", 24, 52, 300, 16, juce::Justification::centredLeft);
+    // logo
+    if (logo.isValid())
+    {
+        g.setOpacity (1.0f);
+        g.setImageResamplingQuality (juce::Graphics::highResamplingQuality);
+        g.drawImage (logo, juce::Rectangle<float> (4.0f, 1.0f, 330.0f, (float) headH - 2.0f),
+                     juce::RectanglePlacement::xLeft | juce::RectanglePlacement::yMid);
+    }
 
     g.setFont (font (11.0f, true));
     g.drawText ("PRESET", presetBox.getX(), presetBox.getY() - 18, 100, 16, juce::Justification::centredLeft);
@@ -781,7 +777,7 @@ void ApexEditor::paint (juce::Graphics& g)
 void ApexEditor::resized()
 {
     auto r = getLocalBounds();
-    auto head = r.removeFromTop (84);
+    auto head = r.removeFromTop (headH);
 
     auto right = head.removeFromRight (250).reduced (18, 4);
     outMeter = right.removeFromRight (10).withTrimmedTop (10).withTrimmedBottom (20);
@@ -792,7 +788,7 @@ void ApexEditor::resized()
     right.removeFromRight (4);
     inKnob.setBounds (right.removeFromRight (70));
 
-    auto mid = head.withTrimmedLeft (330).withTrimmedRight (10);
+    auto mid = head.withTrimmedLeft (350).withTrimmedRight (10);
     auto row = mid.withSizeKeepingCentre (mid.getWidth(), 32).translated (0, 8);
     prevBtn.setBounds (row.removeFromLeft (32));
     row.removeFromLeft (4);

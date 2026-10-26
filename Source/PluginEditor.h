@@ -12,7 +12,7 @@ namespace col
     const juce::Colour line   { 0xff2c2c34 };
     const juce::Colour text   { 0xffe8e8ee };
     const juce::Colour dim    { 0xff8a8a96 };
-    const juce::Colour accent { 0xffff5a36 };
+    const juce::Colour accent { 0xff36e86c };   // logo green
 }
 
 struct LnF : public juce::LookAndFeel_V4
@@ -161,6 +161,8 @@ private:
     float inDisp = 0, outDisp = 0;
     juce::Rectangle<int> inMeter, outMeter;
     juce::String lastPresetName;
+    juce::Image logo;
+    static constexpr int headH = 134;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ApexEditor)
 };

@@ -52,15 +52,17 @@ juce_add_plugin(Apex6
     VST3_CATEGORIES Fx Distortion
     COPY_PLUGIN_AFTER_BUILD FALSE)
 
+juce_add_binary_data(Apex6Data SOURCES Resources/logo.png)
+
 target_sources(Apex6 PRIVATE ${APEX_SOURCES})
 target_compile_definitions(Apex6 PUBLIC ${APEX_DEFS})
 target_link_libraries(Apex6
-    PRIVATE ${APEX_LIBS}
+    PRIVATE ${APEX_LIBS} Apex6Data
     PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags juce::juce_recommended_warning_flags)
 
 if(APEX_BUILD_TESTS)
     juce_add_console_app(ApexRender PRODUCT_NAME "ApexRender")
     target_sources(ApexRender PRIVATE ${APEX_SOURCES} tools/RenderTest.cpp)
     target_compile_definitions(ApexRender PRIVATE ${APEX_DEFS} JUCE_STANDALONE_APPLICATION=1 APEX_RENDER_TEST=1)
-    target_link_libraries(ApexRender PRIVATE ${APEX_LIBS} juce::juce_recommended_config_flags)
+    target_link_libraries(ApexRender PRIVATE ${APEX_LIBS} Apex6Data juce::juce_recommended_config_flags)
 endif()
